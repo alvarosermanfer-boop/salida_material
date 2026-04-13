@@ -7,76 +7,83 @@ API_URL = "https://script.google.com/macros/s/AKfycbxo5qRFWUyS2Q3K_OZfDcuxZ0r6Q9
 st.set_page_config(page_title="Registro QR", layout="centered")
 st.title("📦 Registro por QR")
 
-st.write("1️⃣ Escanea el QR con la cámara")
-st.write("2️⃣ Introduce cantidad y OT")
-st.write("3️⃣ Guarda el registro")
+st.write("Escanea el QR con la cámara")
 
-# --- LECTOR QR CON CAMARA ---
-qr_code = components.html(
+# --- LECTOR QR ---
+qr_value = components.html(
     """
-    <div id="reader" style="width:100%"></div>
-
-    <script src="https://unpkg.com/html5-qrcode"></script>
-    <script>
-        const qr = new Html5Qrcode("reader");
-        qr.start(
+    <html>
+      <head>
+        https://unpkg.com/html5-qrcode>
+      </head>
+      <body>
+        <div id="reader" style="width:100%"></div>
+        <script>
+          const qr = new Html5Qrcode("reader");
+          qr.start(
             { facingMode: "environment" },
             { fps: 10, qrbox: 250 },
-            qrCodeMessage => {
-                window.parent.postMessage(
-                    { type: "qr", value: qrCodeMessage },
-                    "*"
-                );
-                qr.stop();
+            qrCode => {
+              qr.stop();
+              window.parent.postMessage(qrCode, "*");
             }
-        );
-    </script>
+          );
+        </script>
+      </body>
+    </html>
     """,
     height=320,
 )
 
-# --- RECIBIR QR DESDE JS ---
-if "qr_value" not in st.session_state:
-    st.session_state.qr_value = ""
+# --- RECIBIR QR ---
+if "qr_result" not in st.session_state:
+    st.session_state.qr_result = ""
 
-st.markdown("""
-<script>
-window.addEventListener("message", (event) => {
-  if (event.data.type === "qr") {
-    const input = window.parent.document.querySelector('input[data-testid="stTextInput"]');
-    if (input) {
-      input.value = event.data.value;
-      input.dispatchEvent(new Event('input', { bubbles: true }));
-    }
-  }
-});
-</script>
-""", unsafe_allow_html=True)
+components.html(
+    """
+    <script>
+      window.addEventListener("message", (event) => {
+        window.parent.postMessage(
+          { streamlitQr: event.data },
+          "*"
+        );
+      });
+    </script>
+    """,
+    height=0,
+)
 
-qr_value = st.text_input("📷 Código QR")
+# Campo visible (solo lectura)
+qr_text = st.text_input(
+    "📷 Código QR",
+    value=st.session_state.qr_result,
+    disabled=True
+)
 
 # --- FORMULARIO ---
-with st.form("registro_form"):
+with st.form("registro"):
     cantidad = st.number_input("Cantidad", min_value=1, step=1)
     ot = st.text_input("OT")
     guardar = st.form_submit_button("💾 Guardar")
 
-# --- ENVÍO A GOOGLE SHEETS ---
+# --- GUARDADO ---
 if guardar:
-    if not qr_value:
+    if not qr_text:
         st.error("Escanea un QR primero")
     elif not ot:
         st.error("La OT es obligatoria")
     else:
         payload = {
-            "qr": qr_value,
+            "qr": qr_text,
             "cantidad": cantidad,
             "ot": ot
         }
+
         r = requests.post(API_URL, json=payload)
 
         if r.status_code == 200:
-            st.success("✅ Registro guardado correctamente")
+            st.success("✅ Registro guardado")
+            st.session_state.qr_result = ""
         else:
             st.error("❌ Error al guardar")
 
