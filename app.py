@@ -14,19 +14,25 @@ qr_value = components.html(
     """
     <html>
       <head>
-        https://unpkg.com/html5-qrcode>
+        <script src="https://unpkg.com/html5-qrcode"></script>
       </head>
       <body>
         <div id="reader" style="width:100%"></div>
+
         <script>
-          const qr = new Html5Qrcode("reader");
-          qr.start(
+          const qrCodeSuccessCallback = (decodedText, decodedResult) => {
+            window.parent.postMessage(
+              { type: "qr", value: decodedText },
+              "*"
+            );
+            html5QrcodeScanner.clear();
+          };
+
+          const html5QrcodeScanner = new Html5Qrcode("reader");
+          html5QrcodeScanner.start(
             { facingMode: "environment" },
             { fps: 10, qrbox: 250 },
-            qrCode => {
-              qr.stop();
-              window.parent.postMessage(qrCode, "*");
-            }
+            qrCodeSuccessCallback
           );
         </script>
       </body>
@@ -34,6 +40,7 @@ qr_value = components.html(
     """,
     height=320,
 )
+
 
 # --- RECIBIR QR ---
 if "qr_result" not in st.session_state:
